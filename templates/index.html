@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexRecord - Premium Screen Recorder</title>
+    <!-- Google Fonts for Modern Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Remix Icons for Clean Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="background-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <main class="app-container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="ri-record-circle-fill pulse-icon"></i>
+                <h1>NexRecord</h1>
+            </div>
+            <p>High-quality screen & audio recording right from your browser.</p>
+        </header>
+
+        <section class="recording-options">
+            <label class="option-card active" data-mode="screen-audio">
+                <input type="radio" name="record-mode" value="screen-audio" checked>
+                <div class="icon-container">
+                    <i class="ri-macbook-line"></i>
+                    <i class="ri-mic-line sub-icon"></i>
+                </div>
+                <h3>Screen + Audio</h3>
+                <p>Record your screen along with microphone and system audio.</p>
+            </label>
+
+            <label class="option-card" data-mode="audio-only">
+                <input type="radio" name="record-mode" value="audio-only">
+                <div class="icon-container">
+                    <i class="ri-mic-2-line"></i>
+                </div>
+                <h3>Audio Only</h3>
+                <p>Record crisp high-fidelity microphone audio.</p>
+            </label>
+
+            <label class="option-card" data-mode="screen-camera">
+                <input type="radio" name="record-mode" value="screen-camera">
+                <div class="icon-container">
+                    <i class="ri-computer-line"></i>
+                    <i class="ri-webcam-line sub-icon"></i>
+                </div>
+                <h3>Screen + Camera</h3>
+                <p>Share your screen and webcam setup simultaneously.</p>
+            </label>
+        </section>
+
+        <!-- Preview Area -->
+        <section class="preview-section hidden" id="previewContainer">
+            <div class="video-wrappers">
+                <div class="screen-preview-wrapper" id="screenWrapper">
+                    <video id="screenPreview" autoplay muted playsinline></video>
+                    <span class="preview-label">Screen</span>
+                </div>
+                <div class="camera-preview-wrapper hidden" id="cameraWrapper">
+                    <video id="cameraPreview" autoplay muted playsinline></video>
+                    <span class="preview-label">Camera</span>
+                </div>
+            </div>
+            <div class="audio-visualizer hidden" id="audioVisualizerBlock">
+                <div class="bars">
+                    <span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="controls">
+            <button id="startBtn" class="btn btn-primary">
+                <i class="ri-play-circle-line"></i> Start Recording
+            </button>
+            <button id="stopBtn" class="btn btn-danger hidden">
+                <i class="ri-stop-circle-line"></i> Stop Recording
+            </button>
+            <button id="downloadBtn" class="btn btn-success hidden">
+                <i class="ri-download-line"></i> Download Recording
+            </button>
+        </section>
+
+        <div id="statusIndicator" class="status-indicator">Select a mode and click Start</div>
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
