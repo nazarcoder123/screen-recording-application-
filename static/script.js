@@ -15,21 +15,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let mediaRecorder;
     let recordedChunks = [];
-    let streams = []; // Array to hold active streams to stop them later
+    let streams = [];
     let composedStream = null;
+
+    // HD Video Constraints (1080p @ 60fps)
+    const HD_VIDEO = {
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        frameRate: { ideal: 60 }
+    };
+
+    // High-quality audio constraints
+    const HD_AUDIO = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        sampleRate: 48000
+    };
 
     // UI Handle Option Selection
     cards.forEach(card => {
         card.addEventListener('click', () => {
             if (mediaRecorder && mediaRecorder.state === 'recording') {
-                return; // Prevent changing mode while recording
+                return;
             }
             cards.forEach(c => c.classList.remove('active'));
             card.classList.add('active');
             card.querySelector('input').checked = true;
             statusIndicator.textContent = 'Mode selected. Click Start Recording when ready.';
-
-            // Hide download button if they select a new mode
             downloadBtn.classList.add('hidden');
         });
     });
@@ -53,16 +65,19 @@ document.addEventListener('DOMContentLoaded', () => {
             streams = [];
 
             if (mode === 'screen-audio') {
-                // Screen + System Audio + Mic Audio possible combo
+                // HD Screen capture
                 const displayStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: true,
+                    video: HD_VIDEO,
                     audio: true
                 });
                 streams.push(displayStream);
 
-                // Optional microphone
+                // Optional microphone with HD audio
                 try {
-                    const micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    const micStream = await navigator.mediaDevices.getUserMedia({
+                        audio: HD_AUDIO,
+                        video: false
+                    });
                     streams.push(micStream);
 
                     // Mix audio tracks
@@ -91,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 audioVisualizerBlock.classList.add('hidden');
 
             } else if (mode === 'audio-only') {
-                const micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                const micStream = await navigator.mediaDevices.getUserMedia({ audio: HD_AUDIO, video: false });
                 streams.push(micStream);
                 micStream.getTracks().forEach(track => composedStream.addTrack(track));
 
@@ -101,23 +116,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 audioVisualizerBlock.classList.remove('hidden');
 
             } else if (mode === 'screen-camera') {
+                // HD Screen capture
                 const displayStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: true,
+                    video: HD_VIDEO,
                     audio: true
                 });
                 streams.push(displayStream);
 
+                // HD Webcam capture
                 const webCamStream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: true
+                    video: HD_VIDEO,
+                    audio: HD_AUDIO
                 });
                 streams.push(webCamStream);
 
                 screenPreview.srcObject = displayStream;
                 cameraPreview.srcObject = webCamStream;
-
-                // For simplicity, we just record the screen video + mixed audio in the composed stream
-                // (Picture-in-picture recording requires mapping to an HTML canvas context, but keeping it simple here: Record Screen Video + Both Audios)
 
                 const audioContext = new AudioContext();
                 const dest = audioContext.createMediaStreamDestination();
@@ -153,10 +167,9 @@ document.addEventListener('DOMContentLoaded', () => {
         statusIndicator.textContent = 'Requesting permissions...';
 
         const success = await setupStreamProcessing(mode);
-
         if (!success) return;
 
-        // Automatically handle user stopping screen share from browser controls
+        // Handle user stopping screen share from browser controls
         composedStream.getVideoTracks().forEach(track => {
             track.onended = () => {
                 if (mediaRecorder && mediaRecorder.state === 'recording') {
@@ -165,17 +178,34 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         });
 
-        const options = { mimeType: MediaRecorder.isTypeSupported('video/webm; codecs=vp9') ? 'video/webm; codecs=vp9' : 'video/webm' };
+        // HD Bitrate settings: 8 Mbps video + 192 kbps audio
+        const hdBitrate = 8_000_000;
+        const audioBitrate = 192_000;
+
+        let options;
         if (mode === 'audio-only') {
-            options.mimeType = 'audio/webm';
+            options = { mimeType: 'audio/webm', audioBitsPerSecond: audioBitrate };
+        } else if (MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) {
+            options = { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: hdBitrate, audioBitsPerSecond: audioBitrate };
+        } else if (MediaRecorder.isTypeSupported('video/webm; codecs=vp8')) {
+            options = { mimeType: 'video/webm; codecs=vp8', videoBitsPerSecond: hdBitrate, audioBitsPerSecond: audioBitrate };
+        } else {
+            options = { mimeType: 'video/webm', videoBitsPerSecond: hdBitrate, audioBitsPerSecond: audioBitrate };
         }
 
+        // Create MediaRecorder first
         try {
             mediaRecorder = new MediaRecorder(composedStream, options);
         } catch (e) {
-            mediaRecorder = new MediaRecorder(composedStream); // Fallback
+            console.warn("MediaRecorder with HD options failed. Trying fallback.", e);
+            try {
+                mediaRecorder = new MediaRecorder(composedStream, { mimeType: 'video/webm' });
+            } catch (e2) {
+                mediaRecorder = new MediaRecorder(composedStream);
+            }
         }
 
+        // Attach event handlers before starting
         mediaRecorder.ondataavailable = (event) => {
             if (event.data.size > 0) {
                 recordedChunks.push(event.data);
@@ -192,26 +222,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = url;
-                a.download = `NexRecord_${new Date().getTime()}.${mode === 'audio-only' ? 'webm' : 'webm'}`;
+                a.download = `NexRecord_${new Date().getTime()}.webm`;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
             };
 
             downloadBtn.classList.remove('hidden');
-            statusIndicator.textContent = 'Recording completely saved. Ready to download.';
+            statusIndicator.textContent = 'Recording saved! Click Download to save the file.';
             stopAllStreams();
             previewContainer.classList.add('hidden');
         };
 
-        mediaRecorder.start(200); // collect 200ms chunks
+        // Start recording after everything is ready
+        mediaRecorder.start(200);
 
         startBtn.classList.add('hidden');
         stopBtn.classList.remove('hidden');
         downloadBtn.classList.add('hidden');
-        statusIndicator.textContent = 'Recording in progress...';
-
-        // Add recording pulse to body
+        statusIndicator.textContent = 'Recording in progress... (HD 1080p)';
         document.body.style.boxShadow = "inset 0 0 50px rgba(255,59,48,0.2)";
     });
 
